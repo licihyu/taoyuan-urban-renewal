@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桃園市都市更新權利價值計算機(民眾版)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<!-- SheetJS for reading xlsx -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4a843;--gold-light:#f0d080;--rose:#b85c7a;
+  --deep:#1a0e2e;--surface:#f7f4ef;--surface2:#ede8e0;
+  --text:#1a0e2e;--text2:#5a4e6a;--text3:#8a7e9a;
+  --border:rgba(180,160,120,0.25);--border2:rgba(180,160,120,0.45);
+  --purple:#514882;--radius:12px;--radius-sm:8px;
+}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--surface);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7}
+
+/* ── Header ── */
+.header{background:var(--deep);position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 30% 50%,rgba(212,168,67,.15) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 30%,rgba(184,92,122,.12) 0%,transparent 50%)}
+.header-inner{position:relative;max-width:960px;margin:0 auto;padding:28px 32px 24px;display:flex;align-items:center;gap:16px}
+.header-icon{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--gold),var(--rose));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-icon svg{width:26px;height:26px;fill:#fff}
+.header-text h1{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:.05em}
+.header-text p{font-size:12px;color:rgba(255,255,255,.45);margin-top:2px}
+.header-badge{margin-left:auto;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.35);color:var(--gold-light);font-size:12px;padding:4px 12px;border-radius:9999px;letter-spacing:.05em;white-space:nowrap}
+
+/* ── Upload bar ── */
+.upload-bar{background:rgba(81,72,130,.08);border-bottom:1px solid rgba(81,72,130,.2);padding:10px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.upload-label{font-size:13px;color:var(--text2);white-space:nowrap}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;background:var(--purple);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:13px;font-family:inherit;cursor:pointer;transition:opacity .15s}
+.upload-btn:hover{opacity:.85}
+.upload-status{font-size:12px;color:var(--text3);font-style:italic}
+.upload-status.loaded{color:#2d6a0a;font-style:normal;font-weight:500}
+
+/* ── Notice ── */
+.notice{background:rgba(212,168,67,.07);border-bottom:1px solid rgba(212,168,67,.18);padding:9px 32px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.notice svg{width:15px;height:15px;flex-shrink:0;color:var(--gold)}
+
+/* ── Main ── */
+.main{max-width:960px;margin:0 auto;padding:28px 24px 60px}
+.section{margin-bottom:28px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.section-bar{width:3px;height:20px;border-radius:4px;background:linear-gradient(to bottom,var(--gold),var(--rose));flex-shrink:0}
+.section-title{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:var(--deep);letter-spacing:.04em}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;color:var(--text2);font-weight:500}
+.input-wrap{display:flex;border:1.5px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden;background:#fff;transition:border-color .15s}
+.input-wrap:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,168,67,.1)}
+.input-wrap input{flex:1;min-width:0;border:none;outline:none;padding:8px 11px;font-size:15px;font-family:inherit;color:var(--text);background:transparent;-moz-appearance:textfield}
+.input-wrap input::-webkit-outer-spin-button,.input-wrap input::-webkit-inner-spin-button{-webkit-appearance:none}
+.input-wrap input[readonly]{background:var(--surface2);color:var(--text2);cursor:default}
+.unit{background:var(--surface2);border-left:1.5px solid var(--border);padding:0 11px;display:flex;align-items:center;font-size:13px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.field-note{font-size:12px;color:#b06040;line-height:1.5}
+.ref-toggle{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--purple);cursor:pointer;text-decoration:underline;text-underline-offset:2px;margin-top:3px;background:none;border:none;font-family:inherit;padding:0}
+.price-ref{display:none;background:var(--surface2);border-left:3px solid var(--gold);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:9px 13px;margin-top:5px;font-size:12.5px;color:var(--text2);line-height:2}
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+
+/* ── Calc button ── */
+.btn-wrap{display:flex;justify-content:center;margin:28px 0}
+.calc-btn{display:flex;align-items:center;gap:10px;padding:13px 44px;border-radius:9999px;background:linear-gradient(to right,var(--gold),var(--rose));color:#fff;font-size:16px;font-weight:700;font-family:inherit;letter-spacing:.08em;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(184,92,122,.3);transition:transform .15s,box-shadow .15s}
+.calc-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(184,92,122,.4)}
+.calc-btn:active{transform:scale(.97)}
+
+/* ── Results ── */
+#results{display:none;flex-direction:column;gap:18px}
+.res-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.res-card-header{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.res-card-title{font-family:'Noto Serif TC',serif;font-size:15px;font-weight:600;color:var(--purple)}
+.res-body{padding:4px 0}
+.res-row{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--border);font-size:14px}
+.res-row:last-child{border-bottom:none}
+.res-row:hover{background:var(--surface)}
+.res-label{color:var(--text2);line-height:1.5}
+.res-label small{display:block;font-size:11px;color:var(--text3);margin-top:1px}
+.res-vals{display:flex;align-items:baseline;gap:14px;flex-shrink:0;margin-left:12px}
+.res-num{font-size:15px;font-weight:700;color:var(--purple)}
+.res-unit{font-size:12px;color:var(--text3)}
+.highlight-row{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)}
+.highlight-row:last-child{border-bottom:none}
+.hl-label{font-size:14px;font-weight:500;color:var(--text2);line-height:1.5}
+.hl-label small{display:block;font-size:11px;color:var(--text3);margin-top:2px;font-weight:400}
+.hl-val-wrap{display:flex;align-items:baseline;gap:5px;flex-shrink:0;margin-left:12px}
+.hl-num{font-size:21px;font-weight:700;color:var(--purple)}
+.hl-unit{font-size:13px;color:var(--text3)}
+.diff-row{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--border);font-size:14px}
+.diff-row:last-child{border-bottom:none}
+.diff-label{color:var(--text2);line-height:1.5}
+.diff-label small{display:block;font-size:11px;color:var(--text3);margin-top:1px}
+.diff-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:12px}
+.tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:9999px;letter-spacing:.04em}
+.tag-pos{background:#eaf5e0;color:#2d6a0a}
+.tag-neg{background:#fde8e8;color:#9a2020}
+.diff-num{font-size:15px;font-weight:700;color:var(--purple)}
+.remark-box{background:rgba(212,168,67,.05);border-top:1px solid var(--border);padding:10px 18px;font-size:12px;color:var(--text3);line-height:1.8}
+
+/* ── Param badge (縣市參數來源說明) ── */
+.param-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(81,72,130,.08);border:1px solid rgba(81,72,130,.2);color:var(--purple);border-radius:9999px;padding:3px 10px;margin-top:4px}
+
+footer{text-align:center;padding:20px;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:8px}
+
+@media(max-width:600px){
+  .header-inner{padding:20px 16px 16px}
+  .header-badge{display:none}
+  .main{padding:18px 14px 44px}
+  .field-grid{grid-template-columns:1fr}
+  .calc-btn{width:100%;justify-content:center}
+  .upload-bar{padding:10px 16px}
+  .notice{padding:9px 16px}
+}
+.admin-hint{
+  position:fixed;bottom:16px;right:16px;
+  background:rgba(29,78,216,.9);color:#fff;
+  font-size:11px;padding:5px 12px;border-radius:9999px;
+  letter-spacing:.04em;z-index:999;pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><polyline points="9,22 9,12 15,12 15,22" style="fill:rgba(255,255,255,.35)"/></svg>
+    </div>
+    <div class="header-text">
+      <h1 id="page-title">桃園市都市更新權利價值計算機(民眾版)</h1>
+      <p>Urban Renewal Rights Value Calculator</p>
+    </div>
+    <div class="header-badge" id="region-badge">桃園市</div>
+  </div>
+</header>
+
+
+
+<!-- 上傳縣市版本（後台模式才顯示） -->
+<div class="upload-bar" id="admin-bar" style="display:none;">
+  <span class="upload-label">📂 載入縣市版本 xlsx：</span>
+  <button class="upload-btn" onclick="document.getElementById('xlsx-input').click()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    選擇 xlsx 檔案
+  </button>
+  <input type="file" id="xlsx-input" accept=".xlsx" style="display:none" onchange="loadXlsx(this)">
+  <span class="upload-status" id="upload-status">目前使用：高雄市預設參數</span>
+</div>
+
+<div class="notice">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  請填寫土地基本資料及開發建築評估資料，填寫完畢後點擊【計算】按鈕，由系統進行自動計算。
+</div>
+
+<main class="main">
+
+  <!-- 土地基本資料 -->
+  <section class="section">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <div class="section-title">一、土地基本資料</div>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label>1. 土地坐落</label>
+        <div class="input-wrap" style="background:var(--surface2)">
+          <input type="text" id="D_loc" value="桃園市" readonly>
+        </div>
+        <div id="param-source" class="param-badge" style="display:none;">📋 高雄市預設參數</div>
+      </div>
+      <div class="field">
+        <label>2. 都更案土地總面積</label>
+        <div class="input-wrap"><input type="number" id="D3" value="1500" min="1"><div class="unit">m²</div></div>
+      </div>
+      <div class="field">
+        <label>3. 我的土地面積</label>
+        <div class="input-wrap"><input type="number" id="D4" value="50" min="1"><div class="unit">m²</div></div>
+      </div>
+      <div class="field">
+        <label>4. 法定建蔽率（可修改）</label>
+        <div class="input-wrap"><input type="number" id="D6" value="60" min="10" max="100"><div class="unit">%</div></div>
+      </div>
+      <div class="field">
+        <label>5. 法定容積率（可修改）</label>
+        <div class="input-wrap"><input type="number" id="D7" value="200" min="50" max="10000"><div class="unit">%</div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- 開發建築評估資料 -->
+  <section class="section">
+    <div class="section-header">
+      <div class="section-bar"></div>
+      <div class="section-title">二、開發建築評估資料</div>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label>1. 預估都更＋開發獎勵容積額度</label>
+        <div class="input-wrap"><input type="number" id="D10" value="50" min="0" max="50"><div class="unit">%</div></div>
+        
+      </div>
+      <div class="field">
+        <label>2. 預估申請容積移轉額度</label>
+        <div class="input-wrap"><input type="number" id="D11" value="0" min="0" max="50"><div class="unit">%</div></div>
+        
+      </div>
+      <div class="field">
+        <label>3. 預估開發建築每單位造價</label>
+        <div class="input-wrap"><input type="number" id="D13" value="16" min="1"><div class="unit">萬元/坪</div></div>
+
+      </div>
+      <div class="field">
+        <label>4. 預估重建後建築每單位售價</label>
+        <div class="input-wrap"><input type="number" id="D14" value="50" min="1"><div class="unit">萬元/坪</div></div>
+        
+      </div>
+      <div class="field">
+        <label>5. 預估重建後車位售價</label>
+        <div class="input-wrap"><input type="number" id="D15" value="165" min="1"><div class="unit">萬元/個</div></div>
+        <div class="field-note">建議參考內政部實價登錄網站評估</div>
+      </div>
+      <input type="hidden" id="D42" value="1.45">
+      <div class="field" id="admin-cost-mult" style="display:none;">
+        <label>6. 共同負擔展開係數</label>
+        <div class="input-wrap"><input type="number" id="D42_input" value="1.45" min="1" max="3" step="0.01" onchange="document.getElementById('D42').value=this.value"><div class="unit">倍</div></div>
+        <div class="field-note">以總營建成本乘以本係數估算共同負擔（高雄市實務概估 1.45 倍）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 計算按鈕 -->
+  <div class="btn-wrap">
+    <button class="calc-btn" onclick="CA01()" type="button">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><rect x="2" y="2" width="20" height="20" rx="3"/><line x1="8" y1="2" x2="8" y2="22" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/><line x1="2" y1="10" x2="22" y2="10" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/></svg>
+      計　算
+    </button>
+  </div>
+
+  <!-- 結果 -->
+  <div id="results">
+
+    <!-- 壹：預估建物資訊 -->
+    <div class="res-card">
+      <div class="res-card-header"><div class="section-bar"></div><div class="res-card-title">預估建物資訊</div></div>
+      <div class="res-body">
+        <div class="res-row"><div class="res-label">1. 法定容積</div><div class="res-vals"><span><span class="res-num" id="oL3"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN3"></span> <span class="res-unit">坪</span></span></div></div>
+        <div class="res-row"><div class="res-label">2. 獎勵容積</div><div class="res-vals"><span><span class="res-num" id="oL4"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN4"></span> <span class="res-unit">坪</span></span></div></div>
+        <div class="res-row"><div class="res-label">3. 預估地上層總樓地板面積</div><div class="res-vals"><span><span class="res-num" id="oL5"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN5"></span> <span class="res-unit">坪</span></span></div></div>
+        <div class="res-row"><div class="res-label">4. 預估地下層總樓板面積</div><div class="res-vals"><span><span class="res-num" id="oL6"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN6"></span> <span class="res-unit">坪</span></span></div></div>
+        <div class="res-row"><div class="res-label">5. 地下層車位數量</div><div class="res-vals"><span><span class="res-num" id="oL7"></span> <span class="res-unit">個</span></span></div></div>
+        <div class="res-row"><div class="res-label">6. 營建總面積</div><div class="res-vals"><span><span class="res-num" id="oL8"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN8"></span> <span class="res-unit">坪</span></span></div></div>
+        <div class="res-row"><div class="res-label">7. 總銷售面積</div><div class="res-vals"><span><span class="res-num" id="oL9"></span> <span class="res-unit">m²</span></span><span><span class="res-num" id="oN9"></span> <span class="res-unit">坪</span></span></div></div>
+      </div>
+
+    </div>
+
+
+
+    <!-- 參：我的土地權利價值 -->
+    <div class="res-card">
+      <div class="res-card-header"><div class="section-bar"></div><div class="res-card-title">我的土地權利價值及分回餘值</div></div>
+      <div class="res-body">
+        <div class="highlight-row">
+          <div class="hl-label">1. 我的土地權利比例<small>我的土地面積 ÷ 都更案土地總面積</small></div>
+          <div class="hl-val-wrap"><div class="hl-num" id="oRatio"></div><div class="hl-unit">%</div></div>
+        </div>
+        <div class="highlight-row">
+          <div class="hl-label">2. 我的土地可分回權利價值<small>地主可分回權利價值（全案）× 我的土地權利比例</small></div>
+          <div class="hl-val-wrap"><div class="hl-num" id="oL22"></div><div class="hl-unit">萬元</div></div>
+        </div>
+
+
+
+        <!-- 情況一：可分回 N 戶 -->
+        <div id="row-units" style="display:none;">
+          <div class="highlight-row" style="background:rgba(234,245,224,.4);">
+            <div class="hl-label">
+              3. 預估可分回戶數
+              <small>權利價值 ÷ 標準單元總價（每戶含 1 車位）</small>
+            </div>
+            <div class="hl-val-wrap">
+              <div class="hl-num" style="color:#2d6a0a;" id="oUnits"></div>
+              <div class="hl-unit">戶</div>
+            </div>
+          </div>
+          <div class="diff-row">
+            <div class="diff-label">
+              4. 剩餘權利金（可退）
+              <small>可分回權利價值 － 已分配單元總價</small>
+            </div>
+            <div class="diff-right">
+              <span class="tag tag-pos">可退</span>
+              <span class="diff-num" id="oRemain"></span>
+              <span class="res-unit">萬元</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 情況二：未達一個標準單元，領取權利金 -->
+        <div id="row-cash" style="display:none;">
+          <div class="highlight-row" style="background:rgba(253,232,232,.3);">
+            <div class="hl-label">
+              3. 權利價值未達標準單元
+              <small>建議以領取權利金方式處理</small>
+            </div>
+            <div class="hl-val-wrap">
+              <div class="hl-num" style="color:#9a2020;" id="oCash"></div>
+              <div class="hl-unit">萬元</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div><!-- /results -->
+</main>
+
+<footer>本計算結果僅供試算參考，不作為法律或財務依據</footer>
+
+<script>
+// ══════════════════════════════════════════
+// 縣市參數（預設高雄市，可由 xlsx 覆蓋）
+// ══════════════════════════════════════════
+var PARAMS = {
+  title:         '桃園市都市更新權利價值計算機(民眾版)',
+  region:        '桃園市',
+  // 固定工程參數
+  floors_roof:   2,      // 屋頂突出層數
+  excavate_rate: 0.8,    // 地下開挖率
+  basement_pub:  0.4,    // 地下層公設比率
+  basement_fl:   3,      // 地下層數
+  mep_ratio:     0.15,   // 機電設備空間比（興建容積×15%）
+  lobby_ratio:   0.05,   // 梯廳比
+  balcony_ratio: 0.10,   // 陽台雨遮比
+  cost_mult:     1.45,   // 共同負擔展開係數（高雄市預設，xlsx D42 可覆蓋）
+  sale_coeff:    1.05,   // 銷售係數
+  ping_conv:     0.3025, // 坪換算係數
+  parking_ping:  8,      // 每車位坪數
+  // 標準分回單元（權狀坪數）
+  std_ping:      45,     // 標準單元權狀坪數（三房兩廳）
+  // 造價參考表
+  price_ref: [
+    {range:'地上 1～5 層',  price:11.32},
+    {range:'地上 6～10 層', price:12.65},
+    {range:'地上 11～15 層',price:13.98},
+    {range:'地上 16～20 層',price:15.64},
+    {range:'地上 21～25 層',price:17.31},
+  ]
+};
+
+// ══════════════════════════════════════════
+// 讀取 xlsx 並更新 PARAMS
+// ══════════════════════════════════════════
+function loadXlsx(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var data = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+      // A1：標題
+      var title = data[0] && data[0][0] ? String(data[0][0]) : PARAMS.title;
+      PARAMS.title = title;
+
+      // 從標題推測縣市名（取前3字如「高雄市」「台北市」「臺北市」）
+      var regionMatch = title.match(/^(.{3})/);
+      PARAMS.region = regionMatch ? regionMatch[1] : title;
+
+      // 固定參數列（C33~C36 對應 row index 32~35，col C=index 2）
+      // D33=地下層數, D34=屋頂突出, D35=地下開挖率, D36=地下層公設比率
+      function getVal(row, col) {
+        return data[row] && data[row][col] != null ? parseFloat(data[row][col]) : null;
+      }
+      var v;
+      if ((v=getVal(32,3))!==null) PARAMS.basement_fl   = v;
+      if ((v=getVal(33,3))!==null) PARAMS.floors_roof   = v;
+      if ((v=getVal(34,3))!==null) PARAMS.excavate_rate = v;
+      if ((v=getVal(35,3))!==null) PARAMS.basement_pub  = v;
+
+      // D42：共同負擔展開係數（row=41, col D=index 3）
+      if ((v=getVal(41,3))!==null && v>0) PARAMS.cost_mult = v;
+
+      // 標準單元坪數：固定45坪（可由xlsx K26說明文字覆蓋）
+      var row26 = data[25];
+      if (row26 && row26[10]) {
+        var txt = String(row26[10]);
+        var m45 = txt.match(/三房.*?(\d+)\s*坪/);
+        if (m45) PARAMS.std_ping = parseInt(m45[1]);
+      }
+
+      // 造價參考表（I54~I58 對應 row 53~57, col I=8）
+      var priceRows=[];
+      var ranges=['1～5層','6～10層','11～15層','16～20層','21～25層'];
+      for(var i=0;i<5;i++){
+        var pv = getVal(53+i, 8);
+        if(pv) priceRows.push({range:'地上 '+ranges[i], price:pv});
+      }
+      if(priceRows.length===5) PARAMS.price_ref = priceRows;
+
+      // 更新畫面
+      applyParams();
+      document.getElementById('upload-status').textContent = '已載入：' + file.name;
+      document.getElementById('upload-status').className = 'upload-status loaded';
+      // 重設結果
+      document.getElementById('results').style.display = 'none';
+    } catch(err) {
+      alert('讀取 xlsx 時發生錯誤：' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyParams() {
+  document.getElementById('page-title').textContent = PARAMS.title;
+  document.getElementById('region-badge').textContent = PARAMS.region;
+  document.getElementById('D_loc').value = PARAMS.region;
+  document.getElementById('param-source').textContent = '📋 ' + PARAMS.region + ' 版本參數';
+  document.getElementById('D42').value = PARAMS.cost_mult;
+  // 造價說明框已移除（承辦版不顯示）
+  var _pr = document.getElementById('priceRef');
+  if (_pr && _pr.parentElement) { _pr.parentElement.removeChild(_pr); }
+  // 更新標準單元說明
+  var _tu = document.getElementById('txt-std-unit');
+  if (_tu) _tu.textContent =
+    '試算基準：三房兩廳（權狀 ' + PARAMS.std_ping + ' 坪）含 1 平面車位';
+  document.title = PARAMS.title;
+}
+
+// ══════════════════════════════════════════
+// 計算邏輯（完全對應原始 Excel）
+// ══════════════════════════════════════════
+function r(n,d){return Math.round((n+Number.EPSILON)*Math.pow(10,d))/Math.pow(10,d);}
+function rUp(n,d){return Math.ceil((n+Number.EPSILON)*Math.pow(10,d))/Math.pow(10,d);}
+function rDn(n,d){return Math.floor((n+Number.EPSILON)*Math.pow(10,d))/Math.pow(10,d);}
+function v(id){return parseFloat(document.getElementById(id).value)||0;}
+function s(id,val){document.getElementById(id).innerHTML=val;}
+function fmt(n){return n.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function toggleRef(){
+  var el=document.getElementById('priceRef');
+  if(!el) return;
+  var btn=document.querySelector('.ref-toggle');
+  el.style.display = el.style.display==='block' ? 'none' : 'block';
+  if(btn) btn.textContent = el.style.display==='block' ? '▾ 建築工程造價參考' : '▸ 建築工程造價參考';
+}
+
+function CA01(){
+  var P = PARAMS;
+  var D3=v('D3'), D4=v('D4'), D6=v('D6')/100, D7=v('D7')/100;
+  var D10=v('D10')/100, D11=v('D11')/100;
+  var D13=v('D13'), D14=v('D14'), D15=v('D15');
+
+  // ── 建物面積 ──
+  var L3  = D3 * D7;                                    // 法定容積
+  var L4  = L3 * (D10 + D11);                           // 獎勵容積
+  var L30 = L3 + L4;                                    // 興建容積
+  var L31 = L30 * P.mep_ratio;                          // 機電設備
+  var L32 = L30 * P.lobby_ratio;                        // 梯廳
+  var L33 = L30 * P.balcony_ratio;                      // 陽台雨遮
+  var L34 = D3 * D6 * 0.125 * P.floors_roof;            // 屋頂突出物
+  var L5  = L30 + L31 + L32 + L33 + L34;               // 地上層總樓地板
+  var L6  = D3 * P.excavate_rate * P.basement_fl;       // 地下層總樓板
+  var L35 = L6 * (1 - P.basement_pub);                  // 地下淨面積
+  var L7  = rDn(L35 * P.ping_conv / P.parking_ping, 0); // 車位數
+  var L8  = rUp(L5 + L6, 2);                            // 營建總面積
+  var L9  = rUp((L5 + L6 * P.basement_pub) * P.sale_coeff, 2); // 總銷售面積
+
+  var N3=r(L3*P.ping_conv,2), N4=r(L4*P.ping_conv,2), N5=r(L5*P.ping_conv,2);
+  var N6=r(L6*P.ping_conv,2), N8=r(L8*P.ping_conv,2), N9=r(L9*P.ping_conv,2);
+
+  // ── 本案權利價值預估（原始邏輯） ──
+  var cost_mult = parseFloat(document.getElementById('D42').value) || P.cost_mult;
+  var L41 = r(N8 * D13, 2);                             // 總營建成本（坪×造價）
+  var L12 = r(L41 * cost_mult, 2);                      // 共同負擔費用（×展開係數）
+  var L13 = r(N9 * D14 + L7 * D15, 2);                  // 全案總銷售收入
+  var L14 = r(L13 - L12, 2);                            // 地主可分回權利價值（全案）
+  var L43 = L13 > 0 ? r(L12 / L13 * 100, 2) : 0;       // 共同負擔比率%
+
+  // ── 我的土地 ──
+  var ratio = r(D4 / D3 * 100, 4);
+  var L22   = r(L14 * (D4 / D3), 2);                    // 我的可分回權利價值
+
+  // ── 標準單元試算 ──
+  var stdPrice  = r(P.std_ping * D14 + D15, 2);  // 標準單元總價（45坪×售價 + 1車位價）
+  var units     = Math.floor(L22 / stdPrice);      // 可分回戶數（INT）
+  var remain    = r(L22 - units * stdPrice, 2);    // 剩餘權利金
+
+  // ── 輸出 ──
+  s('oL3',fmt(r(L3,2)));  s('oN3',fmt(N3));
+  s('oL4',fmt(r(L4,2)));  s('oN4',fmt(N4));
+  s('oL5',fmt(r(L5,2)));  s('oN5',fmt(N5));
+  s('oL6',fmt(r(L6,2)));  s('oN6',fmt(N6));
+  s('oL7',L7);
+  s('oL8',fmt(L8));        s('oN8',fmt(N8));
+  s('oL9',fmt(L9));        s('oN9',fmt(N9));
+  s('oRatio',ratio);
+  s('oL22',fmt(L22));
+
+  var rowU = document.getElementById('row-units');
+  var rowC = document.getElementById('row-cash');
+
+  if (units >= 1) {
+    // 可分回至少一戶
+    rowU.style.display = 'block';
+    rowC.style.display = 'none';
+    s('oUnits', units);
+    s('oRemain', fmt(remain));
+  } else {
+    // 未達一個標準單元，全額領取權利金
+    rowU.style.display = 'none';
+    rowC.style.display = 'block';
+    s('oCash', fmt(L22));
+  }
+
+  var res=document.getElementById('results');
+  res.style.display='flex';
+  setTimeout(function(){res.scrollIntoView({behavior:'smooth',block:'start'});},100);
+}
+</script>
+<script>
+// ── 後台模式判斷 ──────────────────────────────────────
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var isAdmin = params.get('admin') === 'true'; /* 承辦版：預設隱藏上傳列，網址加 ?admin=true 才顯示後台 */
+
+  if (isAdmin) {
+    // 顯示後台元素
+    document.getElementById('admin-bar').style.display = 'flex';
+    document.getElementById('admin-cost-mult').style.display = 'flex';
+    document.getElementById('param-source').style.display = 'inline-flex';
+
+    // 加入後台提示標籤
+    var hint = document.createElement('div');
+    hint.className = 'admin-hint';
+    hint.textContent = '⚙ 後台模式';
+    document.body.appendChild(hint);
+  }
+})();
+
+// ── 承辦版：載入即以內建桃園參數套用畫面 ──
+try { applyParams(); } catch(e){}
+
+</script>
+</body>
+</html>
